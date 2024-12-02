@@ -1,1 +1,5 @@
-**/input*
+# ignore all input data files:
+*/input.txt
+
+# ignore 'day01' - 'day99' executables (no extension):
+*/day[0-9][0-9]
