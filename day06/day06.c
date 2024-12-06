@@ -195,7 +195,7 @@ leave_for_without_increasing_y:
             if (map[y][x] == 'X')
             {
                 count++;
-                map[y][x] = '.';
+                //map[y][x] = '.';
             }
         }
     }
@@ -204,11 +204,11 @@ leave_for_without_increasing_y:
     return count;
 }
 
-int part_2(char **map, const int height, const int width)
+int part_2(char **map, char **original_map, char **part_1_map, const int height, const int width)
 {
     int count = 0;
 
-    char **original_map = copy_map(map, height, width);
+    //char **original_map = copy_map(map, height, width);
 
     // find start position and direction
     int x = 0;
@@ -231,8 +231,9 @@ leave_for_without_increasing_y:
     int start_y = y;
     char start_d = d;
 
-    // Let's brute force this one. Really no need to put 'O' at all the '.' but
-    // it's simpler that way and I didn't come up with a good clever solution...
+    // Let's brute force this one...
+    // Actually, let's optimize a bit. No need to put 'O' at all the '.',
+    // just where we visited in part 1, that's optimization enough for now...
 
     int oy = 0;
     int ox = 0;
@@ -240,9 +241,12 @@ leave_for_without_increasing_y:
     for (; oy < height; oy++) {
         ox = 0;
         for (; ox < width; ox++) {
-            if (map[oy][ox] != '.' || (oy == start_y && ox == start_x)) {
+            if (part_1_map[oy][ox] != 'X') 
                 continue;
-            }
+
+            if (map[oy][ox] != '.' || (oy == start_y && ox == start_x))
+                continue;
+            
             map[oy][ox] = 'O';
 
             x = start_x;
@@ -289,8 +293,6 @@ leave_for_without_increasing_y:
         }
     }
 
-    free_lines(original_map, height);
-
     return count;
 }
 
@@ -305,15 +307,21 @@ int main(int argc, char **argv)
     int height;
     int width;
 
-    char **map = read_file(argv[1], &height, &width);
+    char **original_map = read_file(argv[1], &height, &width);
 
-    int sum1 = part_1(map, height, width);
+    char **part_1_map = copy_map(original_map, height, width);
+
+    int sum1 = part_1(part_1_map, height, width);
     printf("part 1: %d\n", sum1);
 
-    int sum2 = part_2(map, height, width);
+    char **part_2_map = copy_map(original_map, height, width);
+
+    int sum2 = part_2(part_2_map, original_map, part_1_map, height, width);
     printf("part 2: %d\n", sum2);
 
-    free_lines(map, height);
+    free_lines(part_2_map, height);
+    free_lines(part_1_map, height);
+    free_lines(original_map, height);
 
     return 0;
 }
