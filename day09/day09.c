@@ -208,10 +208,6 @@ int main(int argc, char **argv) {
 
     long result2 = part_2(ints, size);
     printf("part 2: %ld\n", result2);
-//8468892803578 too high
-//8380784456196 too high
-// 845419554235 too low
-// 970349925951 nope
-//6307279963620
+
     return 0;
 }
