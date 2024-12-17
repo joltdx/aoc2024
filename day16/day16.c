@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <stdbool.h>
 
+char **map = NULL;
+
 typedef struct Node {
     int x;
     int y;
@@ -249,18 +251,45 @@ int minDistance(int dist[], bool sptSet[]) {
     return min_index;
 }
 
-void printSolution(int dist[]) {
-    printf("Vertex \t Distance from Source\n");
-    for (int i = 0; i < vertexCount; i++)
-        printf("%d \t\t %d\n", i, dist[i]);
+void print_predecessors_on_map(int vid, int *predecessors[], int predecessorCount[], Vertex vertices[], int *paths, int pathIndex) {
+
+    if (predecessorCount[vid] == 0) {
+        paths[pathIndex] = vid;
+        for (int i = pathIndex; i >= 0; i--) {
+            Vertex v = vertices[paths[i]];
+            if (v.d == 'x')
+                if (v.a.x < v.b.x)
+                    for (int x = v.a.x; x <= v.b.x; x++)
+                        map[v.a.y][x] = 'O';
+                else
+                    for (int x = v.b.x; x <= v.a.x; x++)
+                        map[v.a.y][x] = 'O';
+            else
+                if (v.a.y < v.b.y)
+                    for (int y = v.a.y; y <= v.b.y; y++)
+                        map[y][v.a.x] = 'O';
+                else
+                    for (int y = v.b.y; y <= v.a.y; y++)
+                        map[y][v.a.x] = 'O';
+        }
+        return;
+    }
+
+    for (int i = 0; i < predecessorCount[vid]; i++) {
+        int pred = predecessors[vid][i];
+        paths[pathIndex] = vid;
+        print_predecessors_on_map(pred, predecessors, predecessorCount, vertices, paths, pathIndex + 1);
+    }
 }
 
-long dijkstra(Node start) {
+int dijkstra(Node start) {
 
     int n = 0;
     Vertex vertices[vertexCount];
     int dist[vertexCount];
     int prev[vertexCount];
+    int *predecessors[vertexCount];
+    int predecessorCount[vertexCount];
     char dir[vertexCount];
     bool sptSet[vertexCount];
 
@@ -268,6 +297,8 @@ long dijkstra(Node start) {
         dist[i] = INT_MAX;
         dir[i] = ' ';
         prev[i] = -1;
+        predecessors[i] = NULL;
+        predecessorCount[i] = 0;
         sptSet[i] = false;
     }
 
@@ -288,27 +319,42 @@ long dijkstra(Node start) {
         }
     }
 
+    int min_cost = INT_MAX;
+
     for (int i = 0; i < vertexCount; i++) {
         int u = minDistance(dist, sptSet);
         sptSet[u] = true;
         VertexArray b = hash_find_vertices(vertices[u].b);
         for (int bi = 0; b.v[bi] != NULL; bi++) {
+            int v = b.v[bi]->i;
             int cost = b.v[bi]->d == dir[u] ? b.v[bi]->c : 1000 + b.v[bi]->c;
-            if (dist[u] + cost < dist[b.v[bi]->i]) {
-                dist[b.v[bi]->i] = dist[u] + cost;
-                dir[b.v[bi]->i] = b.v[bi]->d;
-                prev[b.v[bi]->i] = u;
+            if (dist[u] + cost < dist[v]) {
+                dist[v] = dist[u] + cost;
+                dir[v] = b.v[bi]->d;
+                prev[v] = u;
+                predecessors[v] = realloc(predecessors[v], sizeof(int));
+                predecessorCount[v] = 1;
+                predecessors[v][0] = u;
+                if (vertices[v].b.x == endNode.x && vertices[v].b.y == endNode.y && dist[v] < min_cost)
+                    min_cost = dist[v];
+            }
+            else if (dist[u] + cost == dist[v]) {
+                predecessors[v] = realloc(predecessors[v], (predecessorCount[v] + 1) * sizeof(int));
+                predecessors[v][predecessorCount[v]++] = u;
             }
         }
     }
 
-    int min_cost = INT_MAX;
     int min_vid = -1;
+    int paths[vertexCount];
+    int path_count = 0;
+
     for (int i = 0; i < HASH_SIZE; i++) {
         HNode *current = hashTable[i];
         while (current != NULL) {
-            if (current->v.b.x == endNode.x && current->v.b.y == endNode.y) {
-                printf("%d\n",dist[current->v.i]);
+            if (current->v.b.x == endNode.x && current->v.b.y == endNode.y && dist[current->v.i] == min_cost) {
+                print_predecessors_on_map(current->v.i, predecessors, predecessorCount, vertices, paths, 0);
+              
                 if (dist[current->v.i] < min_cost) {
                     min_cost = dist[current->v.i];
                     min_vid = current->v.i;
@@ -318,14 +364,22 @@ long dijkstra(Node start) {
         }
     }
 
+    for (int i = 0; i < vertexCount; i++) {
+        free(predecessors[i]);
+    }
+
     return min_cost;
 }
 
-
-
-int part_2(int goal) {
-
-    return 0;
+int part_2(char **map, const int width, const int height) {
+    int count = 0;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            if (map[y][x] == 'O')
+                count++;
+        }
+    }
+    return count;
 }
 
 int main(int argc, char **argv) {
@@ -337,19 +391,14 @@ int main(int argc, char **argv) {
 
     int height = 0;
     int width = 0;
-    char **map = read_map(argv[1], &height, &width);
+    map = read_map(argv[1], &height, &width);
 
     get_vertices(map, width, height);
 
     int result1 = dijkstra(startNode);
-
-    int result2 = part_2(result1);
-
-
-    //long result1 = part_1(width, height, plot, pid_count);
     printf("part 1: %d\n", result1);
 
-    //long result2 = part_2(width, height, plot, pid_count);
+    int result2 = part_2(map, width, height);
     printf("part 2: %ld\n", result2);
 
     free_map(map, height);
