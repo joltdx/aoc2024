@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct Comp {
     char id[2];
@@ -149,48 +150,138 @@ int part_1() {
     return count;
 }
 
-int groups[26*26][100] = {-1};
-int grp_size[26*26] = {0};
 
-void build_group(int start, int add) {
-    printf("%2s, add %2s\n", get_comp_id(start), get_comp_id(add));
-    int *adding = comp[add].links;
+#define MAX_NODES 640
 
-    for (int i = -1; i < comp[add].l_count; i++) {
-        int add_this = i == -1 ? add : adding[i];
-        int breaking = 0;
-        for (int k = 0; k < grp_size[start]; k++) {
-            if (groups[start][k] == add_this) {
-                printf("foo\n");
-                breaking = 1;
+int nNodes = 0;
+
+static int bestSize = 0;
+static int bestClique[MAX_NODES];
+
+void getNeighbors(int v, int *neighbors, int *count) {
+    *count = comp[v].l_count;
+    for (int i = 0; i < *count; i++) {
+        neighbors[i] = comp[v].links[i];
+    }
+}
+
+void BronKerbosch(int *R, int rSize, int *P, int pSize, int *X, int xSize) {
+    if (pSize == 0 && xSize == 0) {
+        // Found a maximal clique
+        if (rSize > bestSize) {
+            bestSize = rSize;
+            memcpy(bestClique, R, rSize * sizeof(int));
+        }
+        return;
+    }
+
+    // Make a copy of P because we'll modify it
+    int *Pcopy = (int *)malloc(pSize * sizeof(int));
+    memcpy(Pcopy, P, pSize * sizeof(int));
+
+    // For each vertex in P
+    for (int i = 0; i < pSize; i++) {
+        int v = Pcopy[i];
+
+        // Find neighbors of v, to compute P ∩ N(v) and X ∩ N(v)
+        int neighbors[MAX_NODES], nCount;
+        getNeighbors(v, neighbors, &nCount);
+
+        // Build P_intersect and X_intersect
+        int P_next[MAX_NODES], pNextSize = 0;
+        int X_next[MAX_NODES], xNextSize = 0;
+
+        // P ∩ N(v)
+        for (int j = 0; j < pSize; j++) {
+            // check if P[j] is in neighbors
+            int node = P[j];
+            // if node is in neighbors
+            for (int k = 0; k < nCount; k++) {
+                if (neighbors[k] == node) {
+                    P_next[pNextSize++] = node;
+                    break;
+                }
+            }
+        }
+
+        // X ∩ N(v)
+        for (int j = 0; j < xSize; j++) {
+            int node = X[j];
+            for (int k = 0; k < nCount; k++) {
+                if (neighbors[k] == node) {
+                    X_next[xNextSize++] = node;
+                    break;
+                }
+            }
+        }
+
+        // R ∪ {v}
+        int R_next[MAX_NODES];
+        memcpy(R_next, R, rSize * sizeof(int));
+        R_next[rSize] = v;
+
+        BronKerbosch(R_next, rSize + 1,
+                     P_next, pNextSize,
+                     X_next, xNextSize);
+
+        // Move v from P to X
+        // We do that by removing v from P and adding to X
+        for (int j = 0; j < pSize; j++) {
+            if (P[j] == v) {
+                P[j] = P[pSize - 1];
+                pSize--;
                 break;
             }
         }
-        if (!breaking) {
-            groups[start][grp_size[start]++] = add_this;
-            build_group(start, add_this);
-        }
-
+        X[xSize++] = v;
     }
-    
+
+    free(Pcopy);
 }
 
-int part_2() {
-    int count = 0;
-
+void part_2() {
     for (int i = 0; i < 26*26; i++) {
-        for (int j = 0; j < comp[i].l_count; j++) {
-            build_group(i, comp[i].links[j]);
-        }
+        if(comp[i].l_count > 0)
+            nNodes++;
     }
 
-    for (int i = 0; i < grp_size[get_comp_index("ka")]; i ++) {
-        printf("%2s ", get_comp_id(groups[get_comp_index("ka")][i]));
+    // Prepare the initial sets for Bron–Kerbosch:
+    int R[MAX_NODES], rSize = 0;  // Start with empty R
+    int P[MAX_NODES], pSize = 0;  // Initially P has all nodes
+    int X[MAX_NODES], xSize = 0;  // Initially empty
+
+    for (int i = 0; i < nNodes; i++) {
+        P[i] = i;
+    }
+
+    pSize = 0;
+    for (int i = 0; i < 26*26; i++) {
+        if(comp[i].l_count > 0)
+            P[pSize++] = i;
+    }
+
+    // run it
+    BronKerbosch(R, rSize, P, pSize, X, xSize);
+
+    // sort result
+    for (int i = 0; i < bestSize - 1; i++) {
+        for (int j = 0; j < bestSize - i - 1; j++) {
+            if (bestClique[j] > bestClique[j + 1]) {
+                int temp = bestClique[j];
+                bestClique[j] = bestClique[j + 1];
+                bestClique[j + 1] = temp;
+            }
+        } 
+    }
+
+    // output
+    printf("part 2: ");
+    for (int i = 0; i < bestSize; i++) {
+        if (i > 0)
+            printf(",");
+        printf("%2s", get_comp_id(bestClique[i]));
     }
     printf("\n");
-
-    return count;
-
 }
 
 int main(int argc, char **argv)
@@ -206,7 +297,6 @@ int main(int argc, char **argv)
     int result1 = part_1();
     printf("part 1: %d\n", result1);
     
-    int result2 = part_2();
-    printf("part 2: %d\n", result2);
+    part_2();
 
 }
