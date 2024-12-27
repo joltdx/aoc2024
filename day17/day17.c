@@ -3,7 +3,10 @@
 #include <string.h>
 #include <math.h>
 
-void initialize_debugger(const char *filename, int *regA, int *regB, int *regC, int **instr, int *instr_count) {
+int *instr = {NULL};
+int instr_count = 0;
+
+void initialize_debugger(const char *filename, long *regA, long *regB, long *regC, int **instr, int *instr_count) {
     FILE *file = fopen(filename, "r");
     if (file == NULL)
     {
@@ -12,9 +15,9 @@ void initialize_debugger(const char *filename, int *regA, int *regB, int *regC, 
     }
 
     char instructions[128];
-    fscanf(file, "Register A: %d\n", regA);
-    fscanf(file, "Register B: %d\n", regB);
-    fscanf(file, "Register C: %d\n", regC);
+    fscanf(file, "Register A: %ld\n", regA);
+    fscanf(file, "Register B: %ld\n", regB);
+    fscanf(file, "Register C: %ld\n", regC);
     fscanf(file, "\n");
     fscanf(file, "Program: %s\n", &instructions);
 
@@ -31,8 +34,8 @@ void initialize_debugger(const char *filename, int *regA, int *regB, int *regC, 
     fclose(file);
 }
 
-int get_combo_operand(const long operand, const long regA, const long regB, const long regC) {
-    int combo = 0;
+long get_combo_operand(const int operand, const long regA, const long regB, const long regC) {
+    long combo = 0;
     if (operand <= 3)
         combo = operand;
     else if (operand == 4)
@@ -44,12 +47,15 @@ int get_combo_operand(const long operand, const long regA, const long regB, cons
     return combo;
 }
 
-void part_1(const int initA, const int initB, const int initC, const int instr[], const int instr_count) {
-    int regA = initA;
-    int regB = initB;
-    int regC = initC;
+char* part_1(const long initA, const long initB, const long initC) {
+    long regA = initA;
+    long regB = initB;
+    long regC = initC;
 
-    printf("result 1: ");
+    char *output = (char*)malloc(64*sizeof(char));
+    memset(output, 0, 64);
+    int output_pos = 0;
+
     int outed = 0;
     int i = 0;
     while (i >= 0 && i < instr_count) {
@@ -76,8 +82,8 @@ void part_1(const int initA, const int initB, const int initC, const int instr[]
             break;
         case 5:     //out
             if (outed)
-                printf(",");
-            printf("%d", get_combo_operand(operand, regA, regB, regC) % 8);
+                output[output_pos++] = ',';
+            output[output_pos++] = '0' + get_combo_operand(operand, regA, regB, regC) % 8;
             outed = 1;
             break;
         case 6:     //bdv
@@ -89,84 +95,43 @@ void part_1(const int initA, const int initB, const int initC, const int instr[]
         }
         i += 2;
     }
-    printf("\n");
+    return output;
 }
 
-void part_2(const int instr[], const int instr_count) {
-    long regA = 0;
-    long regB = 0;
-    long regC = 0;
+long part_2(long regA, int n) {
+    if (n == -1)
+        return regA >> 3;
 
-    int output[16];
-    long prev_a = 0;
-    int wanted_out_n = 0;
-    
-    long a = 0;
-    while (1) {
-        regA = a;
-        
-        int break_out = 0;
-        int out_n = 0;
-        int i = 0;
-        while (i >= 0 && i < instr_count && out_n < instr_count && !break_out) {
-            int opcode = instr[i];
-            int operand = instr[i+1];
-            switch (opcode) {
-            case 0:     // adv
-                regA = regA / pow(2, get_combo_operand(operand, regA, regB, regC));
-                break;
-            case 1:     //bxl
-                regB = regB ^ operand;
-                break;
-            case 2:     //bst
-                regB = get_combo_operand(operand, regA, regB, regC) % 8;
-                break;
-            case 3:     //jnz
-                if (regA != 0) {
-                    i = operand;
-                    continue;
-                }
-                break;
-            case 4:     //bxc
-                regB = regB ^ regC;
-                break;
-            case 5:     //out
-                int o = get_combo_operand(operand, regA, regB, regC) % 8;
-                if (o != instr[out_n]) {
-                    break_out = 1;
-                    continue;
-                }
-                output[out_n] = o;
-                out_n++;
-    
-                break;
-            case 6:     //bdv
-                regB = regA / pow(2, get_combo_operand(operand, regA, regB, regC));
-                break;
-            case 7:     //cdv
-                regC = regA / pow(2, get_combo_operand(operand, regA, regB, regC));
-                break;
-            }
-            i += 2;
-        }
-        if (out_n > wanted_out_n) {
-            printf("%ld: (%ld)", a, a - prev_a);
-            for (int on = 0; on < out_n; on++) {
-                printf("%d ", output[on]);
-            }
-            printf("\n");
-            prev_a = a;
-            wanted_out_n++;
-        }
-        if (out_n == instr_count) {
-            printf("part 2: %ld\n", a);
-            break;
-        }
-        //if (a % 100000000 == 0) {
-        //    printf("%ld\n", a);
-        //}
-        a += 1;
+    char *next_exp_output = (char*)malloc(64*sizeof(char));
+    memset(next_exp_output, 0, 64);
+    int output_pos = 0;
+
+    for (int i = n; i < instr_count; i++) {
+        next_exp_output[output_pos++] = '0' + instr[i];
+        if ( i != instr_count - 1)
+            next_exp_output[output_pos++] = ',';
     }
+
+    for (int i = 0; i < 16; i++) {
+        long tryRegA = regA + i;
+        long regB = 0;
+        long regC = 0;
+        char *output = part_1(tryRegA, regB, regC);
+
+        if (strcmp(output, next_exp_output) == 0) {
+            // yes
+            long nextTryRegA = ( regA + i ) << 3;
+            long nextRegA = part_2(nextTryRegA, n - 1);
+            if (nextRegA >= 0) {
+                free(next_exp_output);
+                return nextRegA;
+            }
+        }
+    }
+
+    free(next_exp_output);
+
+    return -1;
 }
 
 int main(int argc, char **argv) {
@@ -176,16 +141,19 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    int regA = 0;
-    int regB = 0;
-    int regC = 0;
-    int *instr = NULL;
-    int instr_count = 0;
+    long regA = 0;
+    long regB = 0;
+    long regC = 0;
+
     initialize_debugger(argv[1], &regA, &regB, &regC, &instr, &instr_count);
 
-    part_1(regA, regB, regC, instr, instr_count);
+    char *result1 = part_1(regA, regB, regC);
+    printf("part 1: %s\n", result1);
 
-    //lol no   part_2(instr, instr_count);
+    free(result1);
+
+    long result2 = part_2(0, instr_count - 1);
+    printf("part 2: %lld\n", result2);
 
     return 0;
 }
