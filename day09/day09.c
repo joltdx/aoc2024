@@ -51,7 +51,6 @@ int *read_ints_from_file(const char *filename, int *size) {
     }
 
     *size = index;
-
     return array;
 }
 
