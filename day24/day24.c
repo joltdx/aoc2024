@@ -75,6 +75,7 @@ int get_operand(Wid wid) {
 
 void add_operand(Wid wid, int state) {
     strncpy(wires[wire_count].w, wid, 3);
+    wires[wire_count].w[3] = '\0';
     wires[wire_count].s = state;
     wire_count++;
 }
@@ -125,10 +126,141 @@ long long part_1( ) {
     return result;
 }
 
+int find_gate(Wid g, int op, Wid *output) {
+    for (int i = 0; i < gate_count; i++) {
+        if (gates[i].o == op && ((strncmp(gates[i].a, g, 3) == 0 ) || (strncmp(gates[i].b, g, 3)) == 0)) {
+            strcpy(*output, gates[i].t);
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_output(Wid output) {
+    for (int i = 0; i < gate_count; i++) {
+        if (strncmp(gates[i].t, output, 3) == 0 ) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+void print_gate(const int i) {
+    char operation[4] = {0};
+    if (gates[i].o == OPER_AND)
+        strcpy(operation, "AND");
+    else if (gates[i].o == OPER_OR)
+        strcpy(operation, "OR ");
+    else
+        strcpy(operation, "XOR");
+
+    printf("%s %s %s -> %s\n", gates[i].a, operation, gates[i].b, gates[i].t);
+}
+
+void get_numbered_ids(const int i, Wid *x1, Wid *x2) {
+    (*x1)[0] = 'x'; 
+    (*x1)[1] = '0' + ( i / 10 );
+    (*x1)[2] = '0' + ( i % 10 );
+    (*x1)[3] = '\0';
+    (*x2)[0] = 'x'; 
+    (*x2)[1] = '0' + ( ( i + 1 ) / 10 );
+    (*x2)[2] = '0' + ( ( i + 1 ) % 10 );
+    (*x2)[3] = '\0';
+}
+
+Wid swapped[8] = {0};
+int swapped_count = 0;
+
+void add_swapped(Wid wid) {
+    int i;
+    for (i = 0; i < 8 && swapped[i][0] != 0; i++) {
+        int cmp = strcmp(swapped[i], wid);
+        if (cmp == 0)
+            return;     // duplicate
+        if (cmp > 0)
+            break;      // insert here
+    }
+
+    if (i >= 8)
+        return;
+
+    for (int j = 7; j > i; j--)
+        strcpy(swapped[j], swapped[j - 1]);
+
+    strcpy(swapped[i], wid);
+}
+
+void part_2() {
+    // This is how it's supposed to be:
+    // x00 XOR y00 -> z00
+
+    // x00 AND y00 -> c1    
+    // x01 XOR y01 -> t1    
+    // t1  XOR c1  -> z01   
+ 
+    // x01 AND y01 -> ca    
+    // c1  AND t1  -> cb    
+    // ca  OR  cb  -> c1    
+    // x02 XOR y02 -> t1    
+    // t1  XOR c1  -> z02   
+
+    // and we can increase expected x, y and z, and loop from here...
+    // x02 AND y02 -> ca    
+    // c1  AND t1  -> cb    
+    // ca  OR  cb  -> c1    
+    // x03 XOR y03 -> t1   
+    // t1  XOR c1  -> z03   
+
+    // etc... Let's make sure it's consistent...
+    Wid x1, x2, c1, ca, cb, t1, z2, dummy;
+
+    // Manually check that we're ok before the loop starts,
+    // then we need the c1 and can enter looping
+    int i = find_gate("x00", OPER_AND, &c1);
+
+    for (int i = 1; i < z_wire_count - 2; i++) {
+        get_numbered_ids(i, &x1, &x2); 
+        int id_ca = find_gate(x1, OPER_AND, &ca);
+        if (ca[0] == 'z')
+            add_swapped(ca);
+
+        int id_cb = find_gate(c1, OPER_AND, &cb);
+        if (id_cb == -1)
+            add_swapped(c1);
+        else if (cb[0] == 'z')
+            add_swapped(cb);
+
+        int id_c1 = find_gate(ca, OPER_OR, &c1);
+        if (id_c1 == -1)
+            add_swapped(ca);
+        else if (c1[0] == 'z')
+            add_swapped(c1);
+
+        int id_t1 = find_gate(x2, OPER_XOR, &t1);
+        if (t1[0] == 'z')
+            add_swapped(t1);
+
+        int id_z2 = find_gate(t1, OPER_XOR, &z2);
+        if (id_z2 == -1)
+            add_swapped(t1);
+        else if (z2[0] != 'z')
+            add_swapped(z2);
+    }
+
+    printf("part 2: ");
+    for (int i = 0; i < 8 && swapped[i][0] != 0; i++) {
+        if (i > 0)
+            printf(",");
+        printf("%s", swapped[i]);
+    }
+    printf("\n");
+         
+}
+
 int main(int argc, char **argv)
 {
-    if (argc != 2)
-    {
+    if (argc != 2) {
         fprintf(stderr, "Usage: %s <input>\n", argv[0]);
         exit(1);
     }
@@ -137,6 +269,8 @@ int main(int argc, char **argv)
 
     long long result1 = part_1( );
     printf("part 1: %lld\n", result1);
+
+    part_2();
 
     return 0;
 }
