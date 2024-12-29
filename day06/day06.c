@@ -187,7 +187,6 @@ leave_for_without_increasing_y:
     }
 
     // count 'X' and reset
-
     for (y = 0; y < height; y++)
     {
         for (x = 0; x < width; x++)
@@ -207,8 +206,6 @@ leave_for_without_increasing_y:
 int part_2(char **map, char **original_map, char **part_1_map, const int height, const int width)
 {
     int count = 0;
-
-    //char **original_map = copy_map(map, height, width);
 
     // find start position and direction
     int x = 0;
