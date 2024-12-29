@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 int safety_dance(int data[8])
 {
     int prev = data[0];
